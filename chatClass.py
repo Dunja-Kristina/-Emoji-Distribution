@@ -70,11 +70,12 @@ emojiss2 = {}
             emojiss = np.append(emojiss, [list('no emojis')])
 
 '''
-chat = chatClass(paths[40])
+chat = chatClass(paths[50])
 chat_len = len(chat.msgs)
 
 msgg_first = msgClass(chat.msgs[0])
 sender1 = msgg_first.sender
+sender2 = ""
 print(sender1)
 first = 0
 second = 0
@@ -90,6 +91,7 @@ for i in range(0, int(chat_len)):
             else:
                 emojiss1[emodzi] += 1
         else:
+            sender2 = msgg.sender
             second += 1
             if emodzi not in emojiss2.keys():
                 emojiss2[emodzi] = 1
@@ -102,14 +104,12 @@ emojis_sort2 = collections.OrderedDict(sorted(emojiss2.items(), key=lambda x: x[
 data_raw1 = list(emojis_sort1.keys())
 data_raw1 = np.vstack((data_raw1, list(emojis_sort1.values())))
 data_raw1 = data_raw1.transpose()
-#print(emojis_sort1)
 data1 = pd.DataFrame(data_raw1)
 #data1.to_csv("jedna.csv", index=True, header=False)
 
 data_raw2 = list(emojis_sort2.keys())
 data_raw2 = np.vstack((data_raw2, list(emojis_sort2.values())))
 data_raw2 = data_raw2.transpose()
-#print(emojis_sort2)
 data2 = pd.DataFrame(data_raw2)
 #data2.to_csv("druga.csv", index=True, header=False)
 emojis_sort1 = collections.OrderedDict([(a, b/first) for (a, b) in emojis_sort1.items()])
@@ -130,23 +130,83 @@ def zipf_pmf(N, s):
     return list_values
 
 
+def harmonicNum(n, m):
+    sum = 0
+    for k in range(1, n):
+        sum += 1/pow(k, m)
+    return sum
+
+
+def zipf_cdf(N, s):
+    x = []
+    for k in range(0, N):
+        x.append(harmonicNum(k+1, s)/harmonicNum(N, s))
+    return x
+
+
+def ecdf(arr):
+    x = [0]
+    sum = 0
+    for i in arr:
+        sum += i
+        x.append(sum)
+    return x
+
+
+def ks_test(dist, samp):
+    max = 0
+    for i in range(0, len(dist)):
+        if(max < abs(dist[i]-samp[i])):
+            max = abs(dist[i]-samp[i])
+    return max
+
+
+def rangAproksimacije(n, s, samp): #treba da bude sto manji!!!!
+    return ks_test(zipf_cdf(n, s), ecdf(samp))
+
+
 N1, s1 = 80, 0.95
 N2, s2 = 80, 1.2
 
-n1 = list(emojis_sort1.values())[0]
-n2 = list(emojis_sort2.values())[0]
+n1 = len(emojis_sort1)
+n2 = len(emojis_sort2)
 
-pmf_values = list(zipf_pmf(N1, s1))
-pmf_values1 = list(zipf_pmf(N2, s2))
+tete = np.arange(0, 3, 0.01)
+min1 = 1
+teta1 = -1
+rangovi1 = [rangAproksimacije(n1, i, emojis_sort1.values()) for i in tete]
+
+
+min2 = 1
+teta2 = -1
+rangovi2 = [rangAproksimacije(n2, i, emojis_sort2.values()) for i in tete]
+
+for i in rangovi1: #korak(preciznost) je 0.1 TODO proveriti za razlicite N-ove, mozda malo vece
+    if min1 > i:
+        min1 = i
+        teta1 = tete[rangovi1.index(i)]
+
+for i in rangovi2: #korak(preciznost) je 0.1 TODO proveriti za razlicite N-ove, mozda malo vece
+    if min2 > i:
+        min2 = i
+        teta2 = tete[rangovi2.index(i)]
+
+print("Moja procena koeficijenta je " + str(teta1))
+print("Moja procena koeficijenta je " + str(teta2))
+
+'''
+fig, axs = plt.subplots(1, 2)
+axs[0].bar(tete, rangovi1)
+axs[1].bar(tete, rangovi2)
+'''
+pmf_values1 = list(zipf_pmf(n1, teta1))
+pmf_values2 = list(zipf_pmf(n2, teta2))
 
 fig, axs = plt.subplots(1, 2)
-axs[0].bar(coded_emojis1, height=emojis_sort1.values(), label= 'Emojiji')
-axs[0].bar(range(N1), pmf_values, color='r', alpha=0.5, label= "Zipf 0.9")
+axs[0].bar(coded_emojis1, height=emojis_sort1.values(), label= 'Emojiji '+emoji.demojize(sender1))
+axs[0].bar(range(0, n1), height=pmf_values1, color='r', alpha=0.5, label= "Zipf "+str(teta1))
 axs[0].legend(loc='upper right')
-axs[1].bar(coded_emojis2, height=emojis_sort2.values(), label="Emojiji")
-axs[1].bar(range(N2), pmf_values1, color='r', alpha=0.5, label='Zipf 1.2')
+axs[1].bar(coded_emojis2, height=emojis_sort2.values(), label="Emojiji "+emoji.demojize(sender2))
+axs[1].bar(range(0, n2), height=pmf_values2, color='r', alpha=0.5, label='Zipf '+str(teta2))
 axs[1].legend(loc='upper right')
-
 plt.show()
-
-
